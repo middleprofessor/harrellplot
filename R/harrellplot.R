@@ -83,7 +83,7 @@ harrellplot <- function(
   # add empty grouping variable column if grouping == FALSE to make subsequent code easier
   if(grouping == FALSE){
     g <- 'dummy_g'
-    dt[, (g):='dummy']
+    dt[, dummy_g:='dummy']
   }
 
   # abbreviate levels if TRUE
