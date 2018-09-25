@@ -79,12 +79,11 @@ harrellplot <- function(
   data <- data.table(data)
   dt <- data[, .SD, .SDcols=unique(c(xcols, y, rintcols, rslopecols, covcols))]
   dt <- na.omit(dt) # has to be after groups read in
-  dt <- data.table(dt)
 
   # add empty grouping variable column if grouping == FALSE to make subsequent code easier
   if(grouping == FALSE){
     g <- 'dummy_g'
-    dt[, dummy_g:='dummy']
+    dt[ , dummy_g:=rep("dummy", nrow(dt))]
   }
 
   # abbreviate levels if TRUE
