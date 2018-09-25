@@ -14,12 +14,13 @@ Encoding: UTF-8
 LazyData: true
 Imports:
     ggplot2,
-    cowplot,
-    Hmisc,
     broom,
-    lme4,
-    car,
     emmeans,
-    lmerTest,
+    cowplot,
     data.table
+Suggests:
+    Hmisc,
+    car,
+    lme4,
+    lmerTest
     
