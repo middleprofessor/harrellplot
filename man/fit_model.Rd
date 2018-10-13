@@ -6,9 +6,9 @@
 \usage{
 fit_model(x, y, g, covcols = NULL, rintcols = NULL, rslopecols = NULL, dt,
   fit.model = "lm", REML = TRUE, error = "Normal",
-  add_interaction = FALSE, interaction.group = FALSE,
+  add_interaction = TRUE, interaction.group = TRUE,
   interaction.treatment = TRUE, mean_intervals.method = "raw",
-  conf.mean = 0.95, contrasts.method = "trt.vs.ctrl1",
+  conf.mean = 0.95, contrasts.method = "revpairwise",
   contrasts.scaling = "raw", conf.contrast = 0.95, adjust = FALSE)
 }
 \description{
