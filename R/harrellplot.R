@@ -2,8 +2,6 @@
 #'
 #' a wrapper to ggplot2 that generates a Harrel (or Horizontal) dot plot, with an upper panel of model contrasts and a lower panel of treatment distributions
 #' @import ggplot2
-#' @import Hmisc
-#' @import broom
 #' @import data.table
 #' @param y contains the name of the column with the response variable
 #' @param x contains the name of the column of Treatment 1 -- will be ploted on the X-axis
@@ -31,7 +29,7 @@
 #' @param y_label user supplied lable for Y axis
 #' @param jtheme can be "gray", "bw", "classic", "minimal"
 #' @export
-HarrellPlot <- function(
+harrellplot <- function(
   # function for Harrell or Horizontal dot plot after Harrell's Hmisc
   x,
   y,
