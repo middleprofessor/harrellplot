@@ -1,10 +1,7 @@
 #' fit_model
 #'
 #' an internal function for HarrellPlot
-#' @import Hmisc
-#' @import broom
 #' @import emmeans
-#' @import car
 #' @import lme4
 #' @import lmerTest
 #' @import data.table
@@ -74,15 +71,15 @@ fit_model <- function(
   tables$fit <- fit
   tables$form_str <- model_formula
   tables$coeffs <- coefficients(summary(fit))
-  tables$summary <- glance(fit)
+  tables$summary <- broom::glance(fit)
   tables$summary.raw <- summary(fit)
   tables$means.raw <- lsm[[1]]
   # grudgingly include anova tables
   if(fit.model=='lm'){
     tables$anova.1 <- anova(fit)
-    tables$anova.2 <- Anova(fit, type='II')
+    tables$anova.2 <- car::Anova(fit, type='II')
     options(contrasts=c(unordered="contr.sum", ordered="contr.poly"))
-    tables$anova.3 <- Anova(lm(model_formula, data=dt), type='III')
+    tables$anova.3 <- car::Anova(lm(model_formula, data=dt), type='III')
     options(contrasts=c(unordered="contr.treatment", ordered="contr.poly"))
   }
   if(fit.model=='lmm'){
@@ -118,7 +115,7 @@ fit_model <- function(
     ci_means <- tables$means[, .SD, .SDcols=c(xcols,'mean', 'lower','upper')]
   }
   if(mean_intervals.method=='boot'){
-    dt_boot <- data.table(dt[, smean.cl.boot(get(y),conf.int=conf.mean), by=xcols])
+    dt_boot <- data.table(dt[, Hmisc::smean.cl.boot(get(y),conf.int=conf.mean), by=xcols])
     dt_boot[, tile:=c('a','lower','upper')]
     form <- formula(paste(paste(xcols,collapse='+'),'tile',sep='~'))
     ci_means <- dcast(dt_boot, form, value.var='V1') #**** change x+g to formula

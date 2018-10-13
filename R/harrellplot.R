@@ -1,8 +1,7 @@
-#' harrellplot
+#' HarrellPlot
 #'
 #' a wrapper to ggplot2 that generates a Harrel (or Horizontal) dot plot, with an upper panel of model contrasts and a lower panel of treatment distributions
 #' @import ggplot2
-#' @import cowplot
 #' @import Hmisc
 #' @import broom
 #' @import data.table
@@ -27,12 +26,12 @@
 #' @param show.dots if TRUE, plot dots
 #' @param show.zero if TRUE, includes 0.0 on in the forest plot of effects
 #' @param horizontal if TRUE, the plot is flipped into horizontal geometry
-#' @param color_palette can be "ggplot", "Greys", "Blues", "Accent", "Dark2", "Set1", "Set2", "Set3"
+#' @param color_palette can be "black", "ggplot", "Greys", "Blues", "Accent", "Dark2", "Set1", "Set2", "Set3"
 #' @param rel_height Aspect ratio of forest plot vs. box/dot plot components. E.g .66 or 1.5. For default, either do not pass this parameter or us "rel_height=0".
 #' @param y_label user supplied lable for Y axis
 #' @param jtheme can be "gray", "bw", "classic", "minimal"
 #' @export
-harrellplot <- function(
+HarrellPlot <- function(
   # function for Harrell or Horizontal dot plot after Harrell's Hmisc
   x,
   y,
@@ -83,7 +82,7 @@ harrellplot <- function(
   # add empty grouping variable column if grouping == FALSE to make subsequent code easier
   if(grouping == FALSE){
     g <- 'dummy_g'
-    dt[ , dummy_g:="dummy"]
+    dt[, (g):='dummy']
   }
 
   # abbreviate levels if TRUE
@@ -185,10 +184,15 @@ harrellplot <- function(
     }
 
     if(display.treatment=='ci'){
-      gg_treatments <- gg_treatments + geom_linerange(data=ci_means, aes_string(ymin = 'lower', ymax = 'upper', group=g), size=2, position=position_dodge(dodge_width))
+      #gg_treatments <- gg_treatments + geom_linerange(data=ci_means, aes_string(ymin = 'lower', ymax = 'upper', group=g), size=2, position=position_dodge(dodge_width))
+      gg_treatments <- gg_treatments + geom_errorbar(data=ci_means, aes_string(ymin = 'lower', ymax = 'upper', group=g, color=g), width=0.4, size=1.5, position=position_dodge(dodge_width))
+      
       gg_treatments <- gg_treatments + geom_point(data=ci_means, aes_string(x=x, y=y, shape=g), size=5, color='white', position=position_dodge(dodge_width))
       gg_treatments <- gg_treatments + geom_point(data=ci_means, aes_string(x=x, y=y, shape=g), size=3, color='black', position=position_dodge(dodge_width))
-      gg_treatments
+      #gg_treatments
+      if(grouping==TRUE){
+        gg_treatments <- gg_treatments + geom_line(data=ci_means, aes_string(x=x, y=y, group=g), position=position_dodge(dodge_width))
+      }
     }
 
     # show dots
@@ -211,11 +215,16 @@ harrellplot <- function(
       gg_treatments <- gg_treatments + geom_point(data=ci_means, aes_string(x=x, y=y, group=g), size=3, color='white', position=position_dodge(width=dodge_width))
       gg_treatments <- gg_treatments + geom_point(data=ci_means, aes_string(x=x, y=y, group=g), size=2, color=dot_color, position=position_dodge(width=dodge_width))
     }
-
+    
     # set colors
-    if(color_palette != 'ggplot'){
-      gg_treatments <- gg_treatments + scale_color_brewer(palette = color_palette)
-      gg_treatments <- gg_treatments + scale_fill_brewer(palette = color_palette)
+    if(color_palette=="black"){
+      gg_treatments <- gg_treatments + scale_colour_grey(start=0, end=0)
+      gg_treatments <- gg_treatments + scale_fill_grey(start=1, end=1)
+    }
+    if(color_palette != 'ggplot' & color_palette!="black"){
+      set_direction <- ifelse(display.treatment=="box", 1, -1)
+      gg_treatments <- gg_treatments + scale_color_brewer(palette = color_palette, direction=set_direction)
+      gg_treatments <- gg_treatments + scale_fill_brewer(palette = color_palette, direction=set_direction)
     }
 
     # set theme and gridlines first as background
@@ -258,7 +267,7 @@ harrellplot <- function(
     ar <- rel_height
   }
   if(show.contrasts==TRUE & show.treatments==TRUE){
-    gg <- plot_grid(gg_contrasts, gg_treatments, nrow=2, align = "v", rel_heights = c(1*ar, 1))
+    gg <- cowplot::plot_grid(gg_contrasts, gg_treatments, nrow=2, align = "v", rel_heights = c(1*ar, 1))
   }
   if(show.contrasts==TRUE & show.treatments==FALSE){
     gg <- gg_contrasts
