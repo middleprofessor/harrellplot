@@ -330,7 +330,7 @@ fit_model <- function(
     # scale tables$contrasts
     tables$contrasts <- data.table(tables$contrasts)
     tables$contrasts[, estimate:=100*estimate/denom]
-    tables$contrasts[, SE:=se]
+    tables$contrasts[, SE:=se*100]
     tables$contrasts[, lower.CL:=estimate - 100*tcrit*se]
     tables$contrasts[, upper.CL:=estimate + 100*tcrit*se]
   }
