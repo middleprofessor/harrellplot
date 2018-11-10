@@ -250,9 +250,15 @@ fit_model <- function(
       working <- ci_diffs
       split1 <- data.frame(t(do.call("cbind", strsplit(as.character(working$contrast)," - "))))
       ref <- as.character(split1[, "X2"])
+      nonref <- as.character(split1[, "X1"])
       cell_id <- ci_means[, get(x)]
-      match_it <- match(ref, cell_id)
-      denom <- ci_means[match_it, get(y)]
+      match_it_ref <- match(ref, cell_id)
+      denom <- ci_means[match_it_ref, get(y)]
+      se.denom <- summary(emm)[match_it_ref, "SE"]
+      
+      match_it_nonref <- match(nonref, cell_id)
+      num <- ci_means[match_it_nonref, get(y)]
+      se.num <- summary(emm)[match_it_nonref, "SE"]
     }
     if(grouping==TRUE & add_interaction==TRUE & contrasts.method=='revpairwise'){
       working <- data.table(tables$contrasts.raw)
@@ -261,8 +267,16 @@ fit_model <- function(
       ref.p2 <- ifelse(working[, get(x)]!=".", working[, get(x)], as.character(split1[, "X2"]))
       ref <- paste(ref.p1, ref.p2, sep="-")
       cell_id <- paste(ci_means[, get(g)], ci_means[, get(x)], sep="-")
-      match_it <- match(ref, cell_id)
-      denom <- ci_means[match_it, get(y)]
+      match_it_ref <- match(ref, cell_id)
+      denom <- ci_means[match_it_ref, get(y)]
+      se.denom <- summary(emm)[match_it_ref, "SE"]
+      
+      nonref.p1 <- ifelse(working[, get(g)]!=".", working[, get(g)], as.character(split1[, "X1"]))
+      nonref.p2 <- ifelse(working[, get(x)]!=".", working[, get(x)], as.character(split1[, "X1"]))
+      nonref <- paste(nonref.p1, nonref.p2, sep="-")
+      match_it_nonref <- match(nonref, cell_id)
+      num <- ci_means[match_it_nonref, get(y)]
+      se.num <- summary(emm)[match_it_nonref, "SE"]
     }
     if(grouping==TRUE & add_interaction==TRUE & contrasts.method=='trt.vs.ctrl1'){
       working <- data.table(tables$contrasts.raw)
@@ -270,8 +284,15 @@ fit_model <- function(
       split2 <- data.frame(t(do.call("cbind", strsplit(as.character(split1$X2),","))))
       ref <- paste(split2[, "X2"], split2[, "X1"], sep="-")
       cell_id <- paste(ci_means[, get(g)], ci_means[, get(x)], sep="-")
-      match_it <- match(ref, cell_id)
-      denom <- ci_means[match_it, get(y)]
+      match_it_ref <- match(ref, cell_id)
+      denom <- ci_means[match_it_ref, get(y)]
+      se.denom <- summary(emm)[match_it_ref, "SE"]
+      
+      split3 <- data.frame(t(do.call("cbind", strsplit(as.character(split1$X1),","))))
+      nonref <- paste(split3[, "X2"], split3[, "X1"], sep="-")
+      match_it_nonref <- match(nonref, cell_id)
+      denom <- ci_means[match_it_nonref, get(y)]
+      se.num <- summary(emm)[match_it_nonref, "SE"]
     }
     if(grouping==TRUE & add_interaction==FALSE){
       marginal_means <- rbind(emmeans(fit, specs=g, adjust=ci.adjust),
@@ -283,12 +304,22 @@ fit_model <- function(
       split1 <- data.frame(t(do.call("cbind", strsplit(as.character(working$contrast)," - "))))
       ref <- as.character(split1[, "X2"])
       cell_id <- ifelse(marginal_means[, get(g)!="."], marginal_means[, get(g)], marginal_means[, get(x)])
-      match_it <- match(ref, cell_id)
-      denom <- marginal_means[match_it, emmean]
+      match_it_ref <- match(ref, cell_id)
+      denom <- marginal_means[match_it_ref, emmean]
+      se.denom <- marginal_means[match_it_ref, "SE"]
+      
+      nonref <- as.character(split1[, "X1"])
+      match_it_nonref <- match(nonref, cell_id)
+      num <- marginal_means[match_it_nonref, emmean]
+      se.num <- marginal_means[match_it_nonref, "SE"]
     }
     ci_diffs[, estimate:=100*estimate/denom]
-    ci_diffs[, lower.CL:=100*lower.CL/denom]
-    ci_diffs[, upper.CL:=100*upper.CL/denom]
+    df <- tables$contrasts$df
+    prob <- conf.contrast + (1-conf.contrast)/2
+    tcrit <- qt(prob, df)
+    se <- abs(num/denom)*sqrt((se.num^2/num^2 + se.denom^2/denom^2))
+    ci_diffs[, lower.CL:=estimate - 100*tcrit*se]
+    ci_diffs[, upper.CL:=estimate + 100*tcrit*se]
 
     # # rescale back to scale.o
     # yscale <- scale.o/ci_diffs[1, estimate]
@@ -299,10 +330,9 @@ fit_model <- function(
     # scale tables$contrasts
     tables$contrasts <- data.table(tables$contrasts)
     tables$contrasts[, estimate:=100*estimate/denom]
-    tables$contrasts[, SE:=100*SE/denom]
-    tables$contrasts[, lower.CL:=100*lower.CL/denom]
-    tables$contrasts[, upper.CL:=100*upper.CL/denom]
-
+    tables$contrasts[, SE:=se]
+    tables$contrasts[, lower.CL:=estimate - 100*tcrit*se]
+    tables$contrasts[, upper.CL:=estimate + 100*tcrit*se]
   }
 
   setnames(ci_diffs, old=colnames(ci_diffs), new=c(x, g, y,'lower','upper'))
