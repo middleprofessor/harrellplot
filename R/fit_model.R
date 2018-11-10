@@ -245,6 +245,11 @@ fit_model <- function(
     tables$contrasts[, upper.CL:=upper.CL/yscale]
   }
   if(contrasts.scaling=='percent'){
+    # SE and CI and t and p are not simple transformations like mean
+    # SE is computed following
+    # https://www2.census.gov/programs-surveys/acs/tech_docs/accuracy/percchg.pdf
+    # which has excellent coverage given my small simulation but not entirely
+    # satisfying because I have no idea where this formula comes from
     scale.o <- ci_diffs[1, estimate]
     if(grouping==FALSE){
       working <- ci_diffs
@@ -327,12 +332,14 @@ fit_model <- function(
     # ci_diffs[, lower.CL:=lower.CL*yscale]
     # ci_diffs[, upper.CL:=upper.CL*yscale]
 
-    # scale tables$contrasts
+    # correct tables$contrasts for percent scale
     tables$contrasts <- data.table(tables$contrasts)
     tables$contrasts[, estimate:=100*estimate/denom]
     tables$contrasts[, SE:=se*100]
     tables$contrasts[, lower.CL:=estimate - 100*tcrit*se]
     tables$contrasts[, upper.CL:=estimate + 100*tcrit*se]
+    tables$contrasts[, t.ratio:=estimate/SE]
+    tables$contrasts[, p.value:=pt(abs(t.ratio), df, lower.tail=FALSE)*2]
   }
 
   setnames(ci_diffs, old=colnames(ci_diffs), new=c(x, g, y,'lower','upper'))
