@@ -13,7 +13,7 @@ harrellplot(x, y, g = NULL, covcols = NULL, rintcols = NULL,
   show.contrasts = TRUE, show.treatments = TRUE,
   display.treatment = "box", short = FALSE, show.mean = TRUE,
   show.dots = TRUE, zero = TRUE, horizontal = TRUE,
-  color_palette = "Greys", jtheme = "minimal", rel_height = 0,
+  color_palette = "jco", jtheme = "minimal", rel_height = 0,
   y_label = NULL)
 }
 \arguments{
@@ -57,7 +57,7 @@ harrellplot(x, y, g = NULL, covcols = NULL, rintcols = NULL,
 
 \item{horizontal}{if TRUE, the plot is flipped into horizontal geometry}
 
-\item{color_palette}{can be "black", "ggplot", "Greys", "Blues", "Accent", "Dark2", "Set1", "Set2", "Set3"}
+\item{color_palette}{can be "ggplot", "greys", "npg", "aaas", "nejm", "lancet", "jama", "jco". greys is from color brewer. npg, aas, nejm, lancet, jama, and jco are from ggsci package.}
 
 \item{jtheme}{can be "gray", "bw", "classic", "minimal"}
 
