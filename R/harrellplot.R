@@ -24,7 +24,7 @@
 #' @param show.dots if TRUE, plot dots
 #' @param show.zero if TRUE, includes 0.0 on in the forest plot of effects
 #' @param horizontal if TRUE, the plot is flipped into horizontal geometry
-#' @param color_palette can be "black", "ggplot", "Greys", "Blues", "Accent", "Dark2", "Set1", "Set2", "Set3"
+#' @param color_palette can be "ggplot", "greys", "npg", "aaas", "nejm", "lancet", "jama", "jco". greys is from color brewer. npg, aas, nejm, lancet, jama, and jco are from ggsci package.
 #' @param rel_height Aspect ratio of forest plot vs. box/dot plot components. E.g .66 or 1.5. For default, either do not pass this parameter or us "rel_height=0".
 #' @param y_label user supplied lable for Y axis
 #' @param jtheme can be "gray", "bw", "classic", "minimal"
@@ -58,7 +58,7 @@ harrellplot <- function(
   show.dots=TRUE,
   zero=TRUE,
   horizontal=TRUE,
-  color_palette='Greys',
+  color_palette='jco',
   jtheme='minimal',
   rel_height=0, # Aspect ratio of forest plot vs. box/dot plot components (0 is default)
   y_label=NULL # user supplied lable for Y axis
@@ -113,7 +113,7 @@ harrellplot <- function(
       # draw line at y=0 first
 
       # draw effects + CI
-      geom_linerange(aes(ymin = lower, ymax = upper), color='black', size=2) +
+      geom_linerange(aes(ymin = lower, ymax = upper), color='black', size=1) +
       geom_point(size=3, color='white') +
       geom_point(size=2, color='black')
 
@@ -215,16 +215,36 @@ harrellplot <- function(
     }
     
     # set colors
-    if(color_palette=="black"){
-      gg_treatments <- gg_treatments + scale_colour_grey(start=0, end=0)
-      gg_treatments <- gg_treatments + scale_fill_grey(start=1, end=1)
-    }
-    if(color_palette != 'ggplot' & color_palette!="black"){
+    if(color_palette=="greys"){
       set_direction <- ifelse(display.treatment=="box", 1, -1)
-      gg_treatments <- gg_treatments + scale_color_brewer(palette = color_palette, direction=set_direction)
-      gg_treatments <- gg_treatments + scale_fill_brewer(palette = color_palette, direction=set_direction)
+      gg_treatments <- gg_treatments + scale_color_brewer(palette = "Greys", direction=set_direction)
+      gg_treatments <- gg_treatments + scale_fill_brewer(palette = "Greys", direction=set_direction)
     }
-
+    if(color_palette=="npg"){
+      gg_treatments <- gg_treatments + ggsci::scale_color_npg()
+      gg_treatments <- gg_treatments + ggsci::scale_fill_npg()
+    }
+    if(color_palette=="aaas"){
+      gg_treatments <- gg_treatments + ggsci::scale_color_aaas()
+      gg_treatments <- gg_treatments + ggsci::scale_fill_aaas()
+    }
+    if(color_palette=="nejm"){
+      gg_treatments <- gg_treatments + ggsci::scale_color_nejm()
+      gg_treatments <- gg_treatments + ggsci::scale_fill_nejm()
+    }
+    if(color_palette=="lancet"){
+      gg_treatments <- gg_treatments + ggsci::scale_color_lancet()
+      gg_treatments <- gg_treatments + ggsci::scale_fill_lancet()
+    }
+    if(color_palette=="jama"){
+      gg_treatments <- gg_treatments + ggsci::scale_color_jama()
+      gg_treatments <- gg_treatments + ggsci::scale_fill_jama()
+    }
+    if(color_palette=="jco"){
+      gg_treatments <- gg_treatments + ggsci::scale_color_jco()
+      gg_treatments <- gg_treatments + ggsci::scale_fill_jco()
+    }
+    
     # set theme and gridlines first as background
     if(jtheme=='grey'){
       gg_treatments <- gg_treatments + theme_grey(base_size = base.size)
