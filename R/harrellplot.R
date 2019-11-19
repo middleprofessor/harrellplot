@@ -39,8 +39,8 @@ harrellplot <- function(
   rslopecols=NULL,
   data, # data frame or table
   fit.model='lm', # lm, lmm, glm
+  glm_family='gaussian',
   REML=TRUE, # for lmm models, if false then fit with ML
-  error='Normal', # normal, lognormal, logistic, poisson
   add_interaction=TRUE,
   interaction.group=TRUE,
   interaction.treatment=TRUE,
@@ -63,6 +63,7 @@ harrellplot <- function(
   rel_height=0, # Aspect ratio of forest plot vs. box/dot plot components (0 is default)
   y_label=NULL # user supplied lable for Y axis
 ){
+  
   # subset data
   if(is.null(g)){
     xcols <- x
@@ -93,7 +94,7 @@ harrellplot <- function(
   g_order <- dt[,.(i=min(.I)),by=get(g)][, get]
   dt[, (g):=factor(get(g), g_order)]
 
-  res <- fit_model(x, y, g, covcols, rintcols, rslopecols, dt, fit.model, REML, error, add_interaction, interaction.group, interaction.treatment, mean_intervals.method, conf.mean, contrasts.method, contrasts.scaling, conf.contrast, adjust)
+  res <- fit_model(x, y, g, covcols, rintcols, rslopecols, dt, fit.model, glm_family, REML, add_interaction, interaction.group, interaction.treatment, mean_intervals.method, conf.mean, contrasts.method, contrasts.scaling, conf.contrast, adjust)
 
   ci_means <- res$ci_means
   ci_diffs <- res$ci_diffs
@@ -124,7 +125,14 @@ harrellplot <- function(
     gg_contrasts <- gg_contrasts + ylab(contrast_axis_name)
 
     # re-label X
-    contrast_txt <- ifelse(contrasts.method=='coefficients', 'Coefficient', 'Contrast')
+    if(fit.model=="glm"){
+      contrast_txt <- "Ratio"
+    }else{
+      contrast_txt <- "Contrast"
+    }
+    if(contrasts.method=="coefficients"){
+      contrast_txt <- "Coefficient"
+      }
     gg_contrasts <- gg_contrasts + xlab(contrast_txt)
 
     # set theme and gridlines first as background
@@ -144,7 +152,8 @@ harrellplot <- function(
       gg_contrasts <- gg_contrasts + theme_minimal(base_size = base.size)
     }
     if(jtheme=='cowplot'){
-      gg_contrasts <- gg_contrasts + theme_cowplot(font_size = base.size)
+      #gg_contrasts <- gg_contrasts + cowplot::theme_cowplot(font_size = base.size)
+      gg_contrasts <- gg_contrasts + ggpubr::theme_pubclean()
     }
 
     # include zero in axis?
@@ -183,7 +192,7 @@ harrellplot <- function(
 
     if(display.treatment=='ci'){
       #gg_treatments <- gg_treatments + geom_linerange(data=ci_means, aes_string(ymin = 'lower', ymax = 'upper', group=g), size=2, position=position_dodge(dodge_width))
-      gg_treatments <- gg_treatments + geom_errorbar(data=ci_means, aes_string(ymin = 'lower', ymax = 'upper', group=g, color=g), width=0.4, size=1.5, position=position_dodge(dodge_width))
+      gg_treatments <- gg_treatments + geom_errorbar(data=ci_means, aes_string(ymin = 'lower', ymax = 'upper', group=g, color=g), width=0.0, size=1.5, position=position_dodge(dodge_width))
       
       gg_treatments <- gg_treatments + geom_point(data=ci_means, aes_string(x=x, y=y, shape=g), size=5, color='white', position=position_dodge(dodge_width))
       gg_treatments <- gg_treatments + geom_point(data=ci_means, aes_string(x=x, y=y, shape=g), size=3, color='black', position=position_dodge(dodge_width))
@@ -262,7 +271,8 @@ harrellplot <- function(
       gg_treatments <- gg_treatments + theme_minimal(base_size = base.size)
     }
     if(jtheme=='cowplot'){
-      gg_treatments <- gg_treatments + theme_cowplot(font_size = base.size)
+      #gg_treatments <- gg_treatments + cowplot::theme_cowplot(font_size = base.size)
+      gg_treatments <- gg_treatments + ggpubr::theme_pubclean()
     }
 
     legend_postion <- ifelse(grouping==TRUE,'bottom','none')

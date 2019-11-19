@@ -27,9 +27,9 @@ make_formula_str <- function(y, xcols=NULL, rintcols=NULL, rslopecols=NULL, icol
 contrast.groups <- function(contrast_matrix, grouping, add_interaction){
   split1 <- data.frame(t(do.call("cbind", strsplit(as.character(contrast_matrix$contrast)," - "))))
   if(grouping == TRUE & add_interaction==TRUE){
-    split2a <- data.frame(t(do.call("cbind", strsplit(as.character(split1$X1),","))))
+    split2a <- data.frame(t(do.call("cbind", strsplit(as.character(split1$X1),":"))))
     colnames(split2a) <- c('X1','G1')
-    split2b <- data.frame(t(do.call("cbind", strsplit(as.character(split1$X2),","))))
+    split2b <- data.frame(t(do.call("cbind", strsplit(as.character(split1$X2),":"))))
     colnames(split2b) <- c('X2','G2')
     group_names <- data.table(split2a, split2b)
   }else{

@@ -14,9 +14,9 @@ fit_model <- function(
   rintcols=NULL,
   rslopecols=NULL,
   dt,
-  fit.model='lm', # lm, glm
+  fit.model='lm', # lm, lmm, glm
+  glm_family='gaussian', # family for glm()
   REML=TRUE, # if FALSE then fit by ML
-  error='Normal', # normal, lognormal, logistic, poisson
   add_interaction=TRUE,
   interaction.group=TRUE,
   interaction.treatment=TRUE,
@@ -27,6 +27,7 @@ fit_model <- function(
   conf.contrast=0.95,
   adjust=FALSE
 ){
+  
   if(g=='dummy_g'){
     xcols <- x
     grouping <- FALSE
@@ -48,10 +49,20 @@ fit_model <- function(
     fit <- lm(model_formula, data=dt)
   }
   if(fit.model=='lmm'){
-    fit <- lmer(model_formula, data=dt, REML=REML)
+    fit <- lmerTest::lmer(model_formula, data=dt, REML=REML)
+  }
+  if(fit.model=='glm'){
+    if(glm_family=="nb") # negative binomial
+      fit <- glm.nb(model_formula, data=dt)
+    if(glm_family=="poisson")
+      fit <- glm(model_formula, family="poisson", data=dt) # log link
   }
 
   emm <- emmeans(fit, specs=xcols)
+  if(fit.model=="glm"){
+    emm.link <- copy(emm)
+    emm <- emmeans(fit, specs=xcols, type="response")
+  }
   
   # save global
   tables <- list(NULL)
@@ -60,6 +71,7 @@ fit_model <- function(
   tables$coeffs <- coefficients(summary(fit))
   tables$summary <- broom::glance(fit)
   tables$summary.raw <- summary(fit)
+  tables$contrasts.scaled <- data.table(NULL)
   # grudgingly include anova tables
   if(fit.model=='lm'){
     tables$anova.1 <- anova(fit)
@@ -70,11 +82,22 @@ fit_model <- function(
   }
   if(fit.model=='lmm'){
     # tables$anova.3 <- Anova(lmer(model_formula, data=dt), type='III')
-    tables$anova.1 <- anova(lmer(model_formula, data=dt), type=1)
-    tables$anova.2 <- anova(lmer(model_formula, data=dt), type=2)
-    tables$anova.3 <- anova(lmer(model_formula, data=dt), type=3)
+    tables$anova.1 <- anova(fit, type=1)
+    tables$anova.2 <- anova(fit, type=2)
+    tables$anova.3 <- anova(fit, type=3)
   }
-
+  if(fit.model=='glm'){
+    tables$anova.1 <- anova(fit)
+    tables$anova.2 <- car::Anova(fit, type='II')
+    options(contrasts=c(unordered="contr.sum", ordered="contr.poly"))
+    if(glm_family=="nb") # negative binomial
+      refit <- glm.nb(model_formula, data=dt)
+    if(glm_family=="poisson")
+      refit <- glm(model_formula, family="poisson", data=dt) # log link
+    tables$anova.3 <- car::Anova(refit, type='III')
+    options(contrasts=c(unordered="contr.treatment", ordered="contr.poly"))
+  }
+  
 
   #     Bayes model
   #  mad <- median(abs(dt[,y] - mean(dt[,y])))
@@ -88,7 +111,12 @@ fit_model <- function(
   if(mean_intervals.method=='lm'){
     tables$means <- confint(emm, level=conf.mean)
     ci_means <- data.table(tables$means) # mean intervals not adjusted
-    ci_means <- ci_means[, .SD, .SDcols=c(xcols,'emmean','lower.CL','upper.CL')]
+    if(fit.model=="lm"|fit.model=="lmm"){
+      ci_means <- ci_means[, .SD, .SDcols=c(xcols,'emmean','lower.CL','upper.CL')]
+    }
+    if(fit.model=="glm"){
+      ci_means <- ci_means[, .SD, .SDcols=c(xcols,'response','asymp.LCL','asymp.UCL')]
+    }
   }
   if(mean_intervals.method=='raw'){
     conf.tail <- conf.mean + (1-conf.mean)/2
@@ -175,7 +203,22 @@ fit_model <- function(
                                      level=conf.contrast),
                             infer=c(TRUE,TRUE))
       }
-      if(contrasts.method=="revpairwise"){ # subset into pairwise within each group
+      if(contrasts.method=="revpairwise" & add_interaction==FALSE){
+        ci_diffs.p1 <- summary(contrast(
+          emmeans(fit, specs=xcols[1], type="response"),
+          method=contrasts.method,
+          adjust=ci.adjust,
+          level=conf.contrast), 
+          infer=c(TRUE,TRUE))
+        ci_diffs.p2 <- summary(contrast(
+          emmeans(fit, specs=xcols[2], type="response"),
+          method=contrasts.method,
+          adjust=ci.adjust,
+          level=conf.contrast), 
+          infer=c(TRUE,TRUE))
+        ci_diffs <- rbind(ci_diffs.p1, ci_diffs.p2)
+      }
+      if(contrasts.method=="revpairwise" & add_interaction==TRUE){ # subset into pairwise within each group
         ci_diffs <- summary(contrast(emm,
                                      method=contrasts.method,
                                      adjust=ci.adjust,
@@ -186,18 +229,24 @@ fit_model <- function(
       }
       tables$contrasts.raw <- ci_diffs
       ci_diffs <- data.table(ci_diffs)
+      # if(fit.model=="glm"){
+      #   setnames(ci_diffs,
+      #            old=c("ratio", "asymp.LCL", "asymp.UCL"),
+      #            new=c("estimate", "lower.CL", "upper.CL")
+      #            )
+      # }
       
       if(add_interaction==FALSE){ # delete redundant rows
         # this is inelegant
-        ci_diffs <- ci_diffs[, .(
-          estimate=mean(estimate),
-          SE=mean(SE),
-          df=mean(df),
-          lower.CL=mean(lower.CL),
-          upper.CL=mean(upper.CL),
-          t.ratio=mean(t.ratio),
-          p.value=mean(p.value)
-        ), by=contrast]
+        # ci_diffs <- ci_diffs[, .(
+        #   estimate=mean(estimate),
+        #   SE=mean(SE),
+        #   df=mean(df),
+        #   lower.CL=mean(lower.CL),
+        #   upper.CL=mean(upper.CL),
+        #   t.ratio=mean(t.ratio),
+        #   p.value=mean(p.value)
+        # ), by=contrast]
       }
       if(add_interaction==TRUE & contrasts.method=='revpairwise'){
         ci_diffs[, contrast:=ifelse(ci_diffs[, get(g)]!=".",
@@ -216,6 +265,12 @@ fit_model <- function(
     }
     ycols <- setdiff(colnames(ci_diffs), c(x,g))
     tables$contrasts <- ci_diffs[, .SD, .SDcols=ycols]
+    if(fit.model=="glm"){
+      setnames(ci_diffs,
+               old=c("ratio", "asymp.LCL", "asymp.UCL"),
+               new=c("estimate", "lower.CL", "upper.CL")
+      )
+    }
     ci_diffs[, g:='dummy'] # why do I have this again?
     ci_diffs <- ci_diffs[, .SD, .SDcols=c('contrast','g','estimate','lower.CL','upper.CL')]
   }
@@ -230,26 +285,23 @@ fit_model <- function(
   # make sure factor order of ci_diffs is in order they appear in the table
   ci_diffs[, contrast:=factor(contrast, ci_diffs$contrast)]
 
+  ci_diffs.raw <- copy(ci_diffs)
+  
   yscale <- 1 # default
   if(contrasts.scaling=='standardized'){
     yscale <- summary(fit)$sigma
     ci_diffs[, estimate:=estimate/yscale]
     ci_diffs[, lower.CL:=lower.CL/yscale]
     ci_diffs[, upper.CL:=upper.CL/yscale]
-
-    # scale tables$contrasts
-    tables$contrasts <- data.table(tables$contrasts)
-    tables$contrasts[, estimate:=estimate/yscale]
-    tables$contrasts[, SE:=SE/yscale]
-    tables$contrasts[, lower.CL:=lower.CL/yscale]
-    tables$contrasts[, upper.CL:=upper.CL/yscale]
+    ycols <- setdiff(colnames(ci_diffs), "g")
+    tables$contrasts.scaled <- data.table(ci_diffs[, .SD, .SDcols=ycols])
   }
-  if(contrasts.scaling=='percent'){
+  if(contrasts.scaling=='percent' & fit.model!="glm"){
     # SE and CI and t and p are not simple transformations like mean
-    # SE is computed following
+    # SE is computed using the delta method following
     # https://www2.census.gov/programs-surveys/acs/tech_docs/accuracy/percchg.pdf
-    # which has excellent coverage given my small simulation but not entirely
-    # satisfying because I have no idea where this formula comes from
+    # which has excellent coverage given my small simulation, which results are here
+    # https://rdoodles.rbind.io/notebooks/relative_standard_errors.nb.html
     scale.o <- ci_diffs[1, estimate]
     if(grouping==FALSE){
       working <- ci_diffs
@@ -322,7 +374,13 @@ fit_model <- function(
     df <- tables$contrasts$df
     prob <- conf.contrast + (1-conf.contrast)/2
     tcrit <- qt(prob, df)
+    # se of percent difference using delta method
     se <- abs(num/denom)*sqrt((se.num^2/num^2 + se.denom^2/denom^2))
+    # # check using deltamethod function for trt vs cntrl
+    #   se2[1] <- msm::deltamethod(~x2/x1, mean=coef(fit), cov=vcov(fit))
+    #   se2[2] <- msm::deltamethod(~x3/x1, mean=coef(fit), cov=vcov(fit))
+    #   se2[3] <- msm::deltamethod(~x4/x1, mean=coef(fit), cov=vcov(fit))
+    # }
     ci_diffs[, lower.CL:=estimate - 100*tcrit*se]
     ci_diffs[, upper.CL:=estimate + 100*tcrit*se]
 
@@ -331,17 +389,17 @@ fit_model <- function(
     # ci_diffs[, estimate:=estimate*yscale]
     # ci_diffs[, lower.CL:=lower.CL*yscale]
     # ci_diffs[, upper.CL:=upper.CL*yscale]
-
-    # correct tables$contrasts for percent scale
-    tables$contrasts <- data.table(tables$contrasts)
-    tables$contrasts[, estimate:=100*estimate/denom]
-    tables$contrasts[, SE:=se*100]
-    tables$contrasts[, lower.CL:=estimate - 100*tcrit*se]
-    tables$contrasts[, upper.CL:=estimate + 100*tcrit*se]
-    tables$contrasts[, t.ratio:=estimate/SE]
-    tables$contrasts[, p.value:=pt(abs(t.ratio), df, lower.tail=FALSE)*2]
+    ycols <- setdiff(colnames(ci_diffs), "g")
+    tables$contrasts.scaled <- data.table(ci_diffs[, .SD, .SDcols=ycols])
   }
 
+  if(contrasts.scaling=='percent' & fit.model=="glm"){
+    ci_diffs[, estimate:=ifelse(estimate>1, 100*(estimate-1), -100*(1-estimate))]
+    ci_diffs[, lower.CL:=ifelse(lower.CL>1, 100*(lower.CL-1), -100*(1-lower.CL))]
+    ci_diffs[, upper.CL:=ifelse(upper.CL>1, 100*(upper.CL-1), -100*(1-upper.CL))]
+    ycols <- setdiff(colnames(ci_diffs), "g")
+    tables$contrasts.scaled <- data.table(ci_diffs[, .SD, .SDcols=ycols])
+  }
   setnames(ci_diffs, old=colnames(ci_diffs), new=c(x, g, y,'lower','upper'))
   return(list(fit=fit, ci_means=ci_means, ci_diffs=ci_diffs, tables=tables, yscale=yscale))
 }
